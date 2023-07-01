@@ -1,0 +1,92 @@
+import std::debug::(stacktrace, StackFrame)
+import std::stdio::(STDOUT)
+import std::fmt::(Format, Formatter)
+import std::test::Tests
+import debug::(IndentedFormatter, DebugFormatter, ind_fmt, debug_fmt, debug)
+
+
+class NestString {
+  let @string: String
+}
+
+impl Format for NestString {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.write("***\n")
+    formatter.descend fn() {
+      formatter.write(@string)
+      formatter.write("\n")
+    }
+    formatter.write("***")
+  }
+}
+
+fn pub tests(t: mut Tests) {
+  t.test('NestedFormatter indents on descend') fn (t) {
+    let formatter = IndentedFormatter.new
+
+    formatter.write("hello\n")
+    formatter.descend fn () {
+      formatter.write("beautiful\n")
+      formatter.descend fn () {
+        formatter.write("cruel\n")
+      }
+    }
+    formatter.write("world")
+    t.equal(formatter.into_string, "hello\n  beautiful\n    cruel\nworld")
+  }
+
+  t.test('NestedFormatter no indent if no newline') fn (t) {
+    let formatter = IndentedFormatter.new
+
+    formatter.write("hello ")
+    formatter.write("beautiful ")
+    formatter.write("world")
+    t.equal(formatter.into_string, "hello beautiful world")
+  }
+
+  t.test('ind_fmt indents on descend') fn (t) {
+    let nest = NestString{ @string="hello" }
+    t.equal(ind_fmt(nest), "***\n  hello\n***")
+  }
+
+  t.test('DebugFormatter Prefixes Lines') fn (t) {
+    let formatter = DebugFormatter.new(stacktrace(1))
+    formatter.write("hello")
+    let formatted = formatter.into_string
+    t.true(formatted.starts_with?("\e[34mtest_debug.inko\e[0m(\e[32m"))
+    # Skipping the line number since it'll change when the file is edited.
+    t.true(formatted.ends_with?("\e[0m) hello"))
+  }
+
+  t.test('debug prefixes lines') fn (t) {
+    let formatted = debug_fmt('hello')
+    t.true(formatted.starts_with?("\e[34mtest_debug.inko\e[0m(\e[32m"))
+    t.true(formatted.ends_with?("\e[0m) \"hello\""))
+  }
+
+
+  t.test('DebugFormatter indents on descend') fn (t) {
+    let formatter = DebugFormatter.new(stacktrace(1))
+
+    formatter.write("hello\n")
+    formatter.descend fn () {
+      formatter.write("beautiful\n")
+      formatter.descend fn () {
+        formatter.write("cruel\n")
+      }
+    }
+    formatter.write("world")
+    let string = formatter.into_string
+    t.true(string.contains?('  beautiful'))
+    t.true(string.contains?('    cruel'))
+    t.equal(string.split("\n").count, 4)
+    string.split("\n").each fn (line) {
+      t.true(line.starts_with?("\e[34mtest_debug.inko\e[0m(\e[32m"))
+    }
+  }
+
+  t.test('Debug Array') fn (t) {
+    debug(["a", "b", "c"])
+  }
+}
+

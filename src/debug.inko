@@ -1,0 +1,145 @@
+import std::fs::path::(SEPARATOR)
+import std::fmt(Formatter, Format)
+import std::stdio::STDOUT
+import std::string::(IntoString, StringBuffer)
+import std::debug::(stacktrace, StackFrame)
+import ansi_colors
+
+let PLACEHOLDER = '...'
+let MAX_DEPTH = 16
+
+
+# Convert a formattable value to a string using the indented formatter,
+# which prints descended lines at a higher level of intent.
+fn pub ind_fmt[T: Format](value: ref T) -> String {
+  let formatter: Formatter = IndentedFormatter.new
+  value.fmt(formatter)
+  formatter.into_string
+}
+
+
+
+# Format the value, along with its (colour formatted)
+# filename and line number, provided the value implements Format.
+fn pub debug_fmt(value: ref Format) -> String {
+  let formatter = DebugFormatter.new(stacktrace(2))
+  value.fmt(formatter)
+  formatter.into_string
+}
+
+# Output the given value to stdout, formatted with debug_fmt
+fn pub debug(value: ref Format) {
+  let formatter = DebugFormatter.new(stacktrace(2))
+  value.fmt(formatter)
+  STDOUT.new.print(formatter.into_string)
+}
+
+
+# Implementation of Formater that prints each line it encounters
+# indented by its nesting amount. Makes larger objects easier to read.
+class pub IndentedFormatter {
+  let @last_was_eol: Bool
+  let @buffer: StringBuffer
+  let @nesting: Int
+
+  fn pub static new -> IndentedFormatter {
+    IndentedFormatter {
+      @buffer=StringBuffer.new,
+      @nesting=0,
+      @last_was_eol=false
+    }
+  }
+
+  fn mut push_indentation() {
+    0.until(@nesting * 2).iter.each fn (_) {@buffer.push(' ')}
+  }
+}
+
+impl IntoString for IndentedFormatter {
+  fn pub move into_string -> String {
+    @buffer.into_string
+  }
+}
+
+impl Formatter for IndentedFormatter {
+  fn pub mut write(string: String) {
+    let lines = string.split("\n")
+
+    # Whether to put indentation on first line depends if the previous line ended with a newline
+    let first_line = lines.next
+    match first_line {
+      case None -> nil
+      case Some(line) -> {
+        if @last_was_eol {self.push_indentation()}
+        @buffer.push(line)
+      }
+    }
+
+    # If there are subsequent lines, prefix them with a newline
+    lines.each fn (line) {
+      @buffer.push("\n")
+      self.push_indentation()
+      @buffer.push(line)
+    }
+
+    @last_was_eol = string.ends_with?("\n")
+    # Only output an ending newline if the string included one
+    if @last_was_eol {@buffer.push("\n")}
+  }
+
+  fn pub mut descend(block: fn) {
+    if @nesting >= MAX_DEPTH {
+      write(PLACEHOLDER)
+    }
+
+    @nesting += 1
+    block.call
+    @nesting -= 1
+  }
+}
+
+# Implementation of Formatter that prefixes the filename and line number
+# at the callsite for each line.
+class pub DebugFormatter {
+  let @indented_formatter: IndentedFormatter
+  let @frame: StackFrame
+
+  # Construct a new DebugFormatter, passing in the stack that should
+  # be used to introspect the correct location.
+  #
+  # Stack will typically come from `std::debug::stacktrace(1)`
+  # though the most common usage would be to call the `debug` method
+  # in this file.
+  fn pub static new(stack: Array[StackFrame]) -> DebugFormatter {
+    DebugFormatter {
+      @indented_formatter=IndentedFormatter.new,
+      @frame=stack.get(stack.length - 1).clone
+    }
+
+  }
+}
+
+impl IntoString for DebugFormatter {
+  fn pub move into_string -> String {
+    let string = @indented_formatter.into_string
+
+    let path_parts = @frame.path.to_string.split(SEPARATOR).to_array
+    let filename = ansi_colors.blue(path_parts.get(path_parts.length - 1))
+    let line_number = ansi_colors.green(@frame.line.to_string)
+    let prefix = "{filename}({line_number})"
+
+    let lines = string.split("\n").map fn (line) {"{prefix} {line}"}
+    String.join(lines, with: "\n")
+
+  }
+}
+
+impl Formatter for DebugFormatter {
+  fn pub mut write(string: String) {
+    @indented_formatter.write(string)
+  }
+
+  fn pub mut descend(block: fn) {
+    @indented_formatter.descend(block)
+  }
+}

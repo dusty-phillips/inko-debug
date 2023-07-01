@@ -1,0 +1,10 @@
+
+# ASCII escape colour blue
+fn pub blue(value: ref String) -> String {
+  "\e[34m{value}\e[0m"
+}
+
+# ASCII escape colour green
+fn pub green(value: ref String) -> String {
+   "\e[32m{value}\e[0m"
+}
