@@ -90,6 +90,7 @@ impl Formatter for IndentedFormatter {
   fn pub mut descend(block: fn) {
     if @nesting >= MAX_DEPTH {
       write(PLACEHOLDER)
+      return
     }
 
     @nesting += 1
