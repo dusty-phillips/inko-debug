@@ -6,7 +6,7 @@ in debugging Inko programs.
 ## Installation
 
 ```sh
-inko pkg add github.com/dusty-phillips/inko-debug 0.0.1
+inko pkg add github.com/dusty-phillips/inko-debug 0.0.2
 inko pkg sync
 ```
 
