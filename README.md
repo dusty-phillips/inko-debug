@@ -1,3 +1,13 @@
+# ARCHIVAL NOTICE
+
+This repository is archived and unmaintained.
+
+Inko 0.13 removes the ability to pass generic formatters to the `Format` trait, making
+this library less useful. It also added new methods for formatting objects and arrays to
+the default Formatter, making this library less necessary.
+
+==============
+
 # Inko Debugging Tools
 
 Provides a simple package `debug` that contains two new `Format` implementations to aid
